@@ -245,7 +245,10 @@ static void create_fdt(VirtMachineState *vms)
     ms->fdt = fdt;
 
     /* Header */
-    qemu_fdt_setprop_string(fdt, "/", "compatible", "linux,dummy-virt");
+    // qemu_fdt_setprop_string(fdt, "/", "compatible", "linux,dummy-virt");
+    const char comp[] = "linux,dummy-virt\0xlnx,zynqmp";
+    qemu_fdt_setprop(fdt, "/", "compatible", comp, sizeof(comp));
+
     qemu_fdt_setprop_cell(fdt, "/", "#address-cells", 0x2);
     qemu_fdt_setprop_cell(fdt, "/", "#size-cells", 0x2);
 
@@ -609,6 +612,29 @@ static void fdt_add_pmu_nodes(const VirtMachineState *vms)
         qemu_fdt_setprop_cells(ms->fdt, "/pmu", "interrupts",
                                GIC_FDT_IRQ_TYPE_PPI, VIRTUAL_PMU_IRQ, irqflags);
     }
+}
+
+
+static void fdt_add_pcap_nodes(const VirtMachineState *vms)
+{
+    MachineState *ms = MACHINE(vms);
+    qemu_fdt_add_subnode(ms->fdt, "/pcap");
+    const char compat[] = "xlnx,zynqmp-pcap-fpga";
+    qemu_fdt_setprop(ms->fdt, "/pcap", "compatible",
+                         compat, sizeof(compat));
+    qemu_fdt_setprop_string(ms->fdt, "/pcap", "clock-names", "ref_clk");
+}
+
+static void fdt_add_firmware_nodes(const VirtMachineState *vms)
+{
+    MachineState *ms = MACHINE(vms);
+    qemu_fdt_add_subnode(ms->fdt, "/firmware");
+    qemu_fdt_add_subnode(ms->fdt, "/firmware/zynqmp-firmware");
+
+    const char compat[] = "xlnx,zynqmp-firmware";
+    qemu_fdt_setprop(ms->fdt, "/firmware/zynqmp-firmware", "compatible",
+                         compat, sizeof(compat));
+    qemu_fdt_setprop_string(ms->fdt, "/firmware/zynqmp-firmware", "method", "hvc");
 }
 
 static inline DeviceState *create_acpi_ged(VirtMachineState *vms)
@@ -2223,6 +2249,9 @@ static void machvirt_init(MachineState *machine)
     virt_cpu_post_init(vms, sysmem);
 
     fdt_add_pmu_nodes(vms);
+
+    fdt_add_pcap_nodes(vms);
+    fdt_add_firmware_nodes(vms);
 
     create_uart(vms, VIRT_UART, sysmem, serial_hd(0));
 
